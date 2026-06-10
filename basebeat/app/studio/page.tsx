@@ -1,37 +1,52 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Team {
     name: string;
     englishName: string;
 }
 
-export default function StudioPage() {
+const TEAMS_DATA: Team[] = [
+    { name: 'LG 트윈스', englishName: 'LG Twins' },
+    { name: '삼성 라이온즈', englishName: 'Samsung Lions' },
+    { name: 'kt 위즈', englishName: 'kt wiz' },
+    { name: 'SSG 랜더스', englishName: 'SSG Landers' },
+    { name: '두산 베어스', englishName: 'Doosan Bears' },
+    { name: 'KIA 타이거즈', englishName: 'KIA Tigers' },
+    { name: '롯데 자이언츠', englishName: 'Lotte Giants' },
+    { name: 'NC 다이노스', englishName: 'NC Dinos' },
+    { name: '한화 이글스', englishName: 'Hanwha Eagles' },
+    { name: '키움 히어로즈', englishName: 'Kiwoom Heroes' }
+];
+
+function StudioContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [playerName, setPlayerName] = useState('');
     const [keywords, setKeywords] = useState('');
     const [lyrics, setLyrics] = useState('');
     const [activeTeam, setActiveTeam] = useState<Team>({ name: 'LG 트윈스', englishName: 'LG Twins' });
 
-    const teams: Team[] = [
-        { name: 'LG 트윈스', englishName: 'LG Twins' },
-        { name: '삼성 라이온즈', englishName: 'Samsung Lions' },
-        { name: 'kt 위즈', englishName: 'kt wiz' },
-        { name: 'SSG 랜더스', englishName: 'SSG Landers' },
-        { name: '두산 베어스', englishName: 'Doosan Bears' },
-        { name: 'KIA 타이거즈', englishName: 'KIA Tigers' },
-        { name: '롯데 자이언츠', englishName: 'Lotte Giants' },
-        { name: 'NC 다이노스', englishName: 'NC Dinos' },
-        { name: '한화 이글스', englishName: 'Hanwha Eagles' },
-        { name: '키움 히어로즈', englishName: 'Kiwoom Heroes' }
-    ];
+    useEffect(() => {
+        const teamParam = searchParams.get('team');
+        if (teamParam) {
+            const decodedTeam = decodeURIComponent(teamParam).toLowerCase().replace(/\s+/g, '');
+            const matched = TEAMS_DATA.find(t => {
+                const normalized = t.name.toLowerCase().replace(/\s+/g, '');
+                return normalized.includes(decodedTeam) || decodedTeam.includes(normalized);
+            });
+            if (matched) {
+                setActiveTeam(matched);
+            }
+        }
+    }, [searchParams]);
 
     const handleGenerateAIKeywords = () => {
         const tokens = keywords.trim()
             ? keywords.split(/\s+/).filter(t => t.length > 0)
-            : ['승리', '열정', '투지', '함성']; // 키워드 없을 시 자동 생성
+            : ['승리', '열정', '투지', '함성'];
 
         const p1 = tokens[0];
         const p2 = tokens[1] || '최강';
@@ -80,61 +95,54 @@ export default function StudioPage() {
                     🎙️ AI Composing Studio
                 </h1>
                 <p className="text-sm text-gray-500 mt-2 font-medium tracking-wide">
-                    키워드를 입력하거나, 그냥 생성 버튼을 눌러 각 구단별 맞춤 가사를 확인하세요.
+                    선택된 <span className="text-green-400 font-bold">{activeTeam.name}</span>의 테마를 기반으로 맞춤형 응원가를 커스텀 빌딩합니다.
                 </p>
             </div>
 
             <div className="grid grid-cols-12 gap-8">
-                <div className="col-span-5 bg-[#12161f] border border-gray-800/60 rounded-xl p-6 space-y-6">
-                    <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3">구단 선택</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            {teams.map((team) => (
-                                <button
-                                    key={team.name}
-                                    onClick={() => setActiveTeam(team)}
-                                    className={`text-left text-xs font-bold px-4 py-3 rounded-lg transition border ${activeTeam.name === team.name
-                                        ? 'bg-green-500 text-black border-green-500 shadow-md'
-                                        : 'bg-[#1c212c]/40 text-gray-400 border-gray-800/60 hover:bg-[#1c212c] hover:text-white'
-                                        }`}
-                                >
-                                    {team.name}
-                                </button>
-                            ))}
+                <div className="col-span-5 bg-[#12161f] border border-gray-800/60 rounded-xl p-6 flex flex-col justify-between h-[450px]">
+                    <div className="space-y-5">
+                        <div>
+                            <span className="text-[10px] font-mono bg-green-500/10 text-green-400 px-2.5 py-1 rounded-md font-bold uppercase border border-green-500/20 tracking-wider inline-block">
+                                선택 구단 연동 완료
+                            </span>
+                            <div className="text-xl font-black text-white mt-2 tracking-tight">
+                                {activeTeam.name} ({activeTeam.englishName})
+                            </div>
                         </div>
-                    </div>
 
-                    <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">선수 이름</label>
-                        <input
-                            type="text"
-                            value={playerName}
-                            onChange={(e) => setPlayerName(e.target.value)}
-                            placeholder="선수명 (선택사항)"
-                            className="w-full bg-[#0b0e14] border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-green-400 transition"
-                        />
-                    </div>
+                        <div>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">선수 이름</label>
+                            <input
+                                type="text"
+                                value={playerName}
+                                onChange={(e) => setPlayerName(e.target.value)}
+                                placeholder="선수명 (선택사항)"
+                                className="w-full bg-[#0b0e14] border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-green-400 transition"
+                            />
+                        </div>
 
-                    <div>
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">키워드 (선택)</label>
-                        <input
-                            type="text"
-                            value={keywords}
-                            onChange={(e) => setKeywords(e.target.value)}
-                            placeholder="넣고 싶은 단어들 (공백 구분)"
-                            className="w-full bg-[#0b0e14] border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-green-400 transition"
-                        />
+                        <div>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">키워드 (선택)</label>
+                            <input
+                                type="text"
+                                value={keywords}
+                                onChange={(e) => setKeywords(e.target.value)}
+                                placeholder="넣고 싶은 단어들 (공백 구분)"
+                                className="w-full bg-[#0b0e14] border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-green-400 transition"
+                            />
+                        </div>
                     </div>
 
                     <button
                         onClick={handleGenerateAIKeywords}
-                        className="w-full bg-[#1c212c] hover:bg-[#252c3a] border border-gray-800 text-white font-bold py-3.5 rounded-xl text-xs transition duration-200 tracking-wider"
+                        className="w-full bg-[#1c212c] hover:bg-[#252c3a] border border-gray-800 text-white font-bold py-3.5 rounded-xl text-xs transition duration-200 tracking-wider mt-4"
                     >
                         ✨ 가사 자동 완성하기
                     </button>
                 </div>
 
-                <div className="col-span-7 bg-[#12161f] border border-gray-800/60 rounded-xl p-6 flex flex-col justify-between h-[635px]">
+                <div className="col-span-7 bg-[#12161f] border border-gray-800/60 rounded-xl p-6 flex flex-col justify-between h-[450px]">
                     <textarea
                         value={lyrics}
                         onChange={(e) => setLyrics(e.target.value)}
@@ -150,5 +158,13 @@ export default function StudioPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function StudioPage() {
+    return (
+        <Suspense fallback={<div className="p-12 text-center text-sm text-gray-500">스튜디오 모듈 로딩 중...</div>}>
+            <StudioContent />
+        </Suspense>
     );
 }
