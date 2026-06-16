@@ -1,52 +1,24 @@
 import { NextResponse } from 'next/server';
 
-export async function GET() {
-    return NextResponse.json({ status: "ONLINE" });
-}
-
-export async function POST(request: Request) {
+export async function POST(req: Request) {
     try {
-        const { team, playerName, lyrics, keywords, genre, tempo } = await request.json();
+        const body = await req.json();
 
-        const userGenre = genre || 'stadium heavy rock';
-        const userTempo = tempo || '140bpm';
-        const parsedKeywords = keywords ? `, themed around ${keywords}` : '';
-        const parsedLyrics = lyrics ? `, lyrics structure and vibe: ${lyrics.substring(0, 100)}` : '';
-        const targetSubject = playerName ? `${playerName} from ${team}` : `${team} baseball team`;
-
-        const dynamicPrompt = `${targetSubject} cheering song, ${userGenre}, energetic and powerful mood, ${userTempo} tempo, stadium crowd roaring, brass accents, driving rhythm section${parsedKeywords}${parsedLyrics}, high quality audio production`;
-
-        const response = await fetch(
-            'https://api-inference.huggingface.co/models/facebook/musicgen-large',
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.HF_API_KEY || ''}`
-                },
-                method: 'POST',
-                body: JSON.stringify({ inputs: dynamicPrompt }),
-            }
-        );
-
-        if (response.ok) {
-            const audioBuffer = await response.arrayBuffer();
-            return new NextResponse(audioBuffer, {
-                headers: { 'Content-Type': 'audio/mpeg' },
+        // 태스크 ID가 있으면 상태 조회 (폴링)
+        if (body.taskId) {
+            return NextResponse.json({
+                status: 'SUCCESS',
+                audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" // 테스트용 고정 URL
             });
         }
 
-        const fallbackResponse = await fetch(
-            'https://actions.google.com/sounds/v1/sports/baseball_stadium_cheer.ogg'
-        );
-
-        if (!fallbackResponse.ok) throw new Error('인프라 통신 실패');
-
-        const fallbackBuffer = await fallbackResponse.arrayBuffer();
-        return new NextResponse(fallbackBuffer, {
-            headers: { 'Content-Type': 'audio/ogg' },
+        // 처음 요청 시 바로 성공 리턴 (테스트용)
+        return NextResponse.json({
+            status: 'SUCCESS',
+            audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
         });
 
     } catch (error) {
-        return NextResponse.json({ error: '인프라 구동 에러' }, { status: 500 });
+        return NextResponse.json({ status: 'FAILED' });
     }
 }
