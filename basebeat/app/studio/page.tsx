@@ -28,8 +28,12 @@ function StudioContent() {
     const [keywords, setKeywords] = useState('');
     const [lyrics, setLyrics] = useState('');
     const [activeTeam, setActiveTeam] = useState<Team>({ name: 'LG 트윈스', englishName: 'LG Twins' });
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationStatus, setGenerationStatus] = useState('');
+    const [isLyricsGenerating, setIsLyricsGenerating] = useState(false);
+    const [lyricsStatus, setLyricsStatus] = useState('');
+
     const [generatedAudioUrl, setGeneratedAudioUrl] = useState('');
     const [showRestoreModal, setShowRestoreModal] = useState(false);
 
@@ -93,18 +97,35 @@ function StudioContent() {
         setShowRestoreModal(false);
     };
 
-    const handleGenerateAIKeywords = () => {
-        const tokens = keywords.trim() ? keywords.split(/\s+/) : ['승리', '열정', '투지', '함성'];
-        const p1 = tokens[0] || '승리';
-        const p2 = tokens[1] || '최강';
-        const p3 = tokens[2] || '패기';
-        const p4 = tokens[3] || '자부심';
+    const handleGenerateAIKeywords = async () => {
+        setIsLyricsGenerating(true);
+        setLyricsStatus('AI가 야구장 감성 가사를 작사하는 중...');
 
-        const templates = [
-            `[Intro]\n지금 시작되는 무적의 찬가!\n[Verse 1]\n그라운드 위로 ${playerName || '우리 팀'}이 달린다!\n${p1}을 가슴에 품고 거침없이 돌진해!\n[Chorus]\n터져라! ${p2}! 외쳐라! ${p3}!\n${activeTeam.name} 승리의 함성 가득 차오른다!\n[Outro]\n영원하리라! ${p4}!`,
-            `[Intro]\n오오오! ${activeTeam.name}!\n[Verse 1]\n${playerName || '무적의 영웅'}! ${p1}을 향한 뜨거운 눈빛!\n오직 승리만 바라보며 전진한다!\n[Chorus]\n날려버려라! ${p2}의 한 방!\n우리들의 ${p3}가 온 그라운드를 흔든다!\n[Outro]\n${activeTeam.name}! 워우워!`
-        ];
-        setLyrics(templates[Math.floor(Math.random() * templates.length)]);
+        try {
+            const res = await fetch('/api/lyrics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    teamName: activeTeam.name,
+                    playerName: playerName,
+                    keywords: keywords
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.lyrics) {
+                setLyrics(data.lyrics);
+            } else {
+                alert('AI 가사 생성 실패');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('AI 통신 에러 발생');
+        } finally {
+            setIsLyricsGenerating(false);
+            setLyricsStatus('');
+        }
     };
 
     const handleCreateMurekaVocal = async () => {
@@ -230,6 +251,12 @@ function StudioContent() {
                             />
                         </div>
 
+                        {lyricsStatus && (
+                            <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center font-mono animate-pulse">
+                                {lyricsStatus}
+                            </div>
+                        )}
+
                         {generationStatus && (
                             <div className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center font-mono animate-pulse">
                                 {generationStatus}
@@ -240,9 +267,13 @@ function StudioContent() {
                     <div className="grid grid-cols-2 gap-2 mt-4">
                         <button
                             onClick={handleGenerateAIKeywords}
-                            className="bg-[#1c212c] hover:bg-[#252c3a] border border-gray-800 text-white font-bold py-3.5 rounded-xl text-xs transition duration-200 tracking-wider"
+                            disabled={isLyricsGenerating}
+                            className={`font-bold py-3.5 rounded-xl text-xs transition duration-200 tracking-wider border ${isLyricsGenerating
+                                    ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                                    : 'bg-[#1c212c] hover:bg-[#252c3a] border-gray-800 text-white'
+                                }`}
                         >
-                            ✨ 가사 자동 완성
+                            {isLyricsGenerating ? '✨ 작사 중...' : '✨ 가사 자동 완성'}
                         </button>
                         <button
                             onClick={handleCreateMurekaVocal}
