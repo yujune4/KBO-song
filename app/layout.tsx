@@ -1,99 +1,113 @@
 'use client';
 
-import './globals.css';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useSearchParams, usePathname } from 'next/navigation';
+import { Home, Users, FolderHeart, ShieldCheck, LogIn, LogOut } from 'lucide-react';
+import '@/app/globals.css';
+
+function NavigationHeader() {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const teamParam = searchParams.get('team');
+  const query = teamParam ? `?team=${encodeURIComponent(teamParam)}` : '';
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const leftNavItems = [
+    { label: '홈 스튜디오', path: '/', icon: <Home size={15} /> },
+    { label: '구단 로스터', path: '/roster', icon: <Users size={15} /> },
+  ];
+
+  const rightNavItems = [
+    { label: '보관함', path: '/archive', icon: <FolderHeart size={15} /> },
+    { label: '크레딧', path: '/credits', icon: <ShieldCheck size={15} /> },
+  ];
+
+  return (
+    <header className="w-full bg-neutral-900 border-b border-neutral-800 sticky top-0 z-50 px-6 py-3.5 flex items-center justify-between backdrop-blur/90">
+      <div className="flex items-center gap-6">
+        <span className="text-xs font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-neutral-500 uppercase">
+          KBO AI STUDIO
+        </span>
+        <nav className="flex items-center gap-1">
+          {leftNavItems.map((item) => {
+            const isActive = pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                href={`${item.path}${query}`}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${isActive
+                    ? 'bg-neutral-800 text-white border border-neutral-700'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-850/60'
+                  }`}
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <nav className="flex items-center gap-1">
+          {rightNavItems.map((item) => {
+            const isActive = pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                href={`${item.path}${query}`}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${isActive
+                    ? 'bg-neutral-800 text-white border border-neutral-700'
+                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-850/60'
+                  }`}
+              >
+                {item.icon}
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="w-px h-4 bg-neutral-800 mx-1" />
+
+        <button
+          onClick={() => setIsLoggedIn(!isLoggedIn)}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all ${isLoggedIn
+              ? 'border-neutral-800 bg-neutral-950 text-neutral-400 hover:text-red-400 hover:border-red-900/30 hover:bg-red-500/5'
+              : 'border-neutral-700 bg-neutral-800 text-white hover:opacity-90 shadow-sm'
+            }`}
+        >
+          {isLoggedIn ? (
+            <>
+              <LogOut size={14} /> 로그아웃
+            </>
+          ) : (
+            <>
+              <LogIn size={14} /> 로그인
+            </>
+          )}
+        </button>
+      </div>
+    </header>
+  );
+}
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
-
-  useEffect(() => {
-    const savedSession = localStorage.getItem('BB_SESSION');
-    if (savedSession === 'false') {
-      setIsLoggedIn(false);
-    } else {
-      setIsLoggedIn(true);
-    }
-  }, []);
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    localStorage.setItem('BB_SESSION', 'false');
-    alert('로그아웃 되었습니다.');
-  };
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    localStorage.setItem('BB_SESSION', 'true');
-    alert('성공적으로 로그인되었습니다. (데모 유저 연동)');
-  };
-
   return (
-    <html lang="ko">
-      <body className="bg-[#0b0e14] text-white antialiased">
-        <header className="bg-[#0b0e14] border-b border-gray-800 px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="text-xl font-black tracking-tighter text-white hover:opacity-80 transition">
-              🎵 BaseBeat
-            </Link>
-            <nav className="flex items-center gap-6 text-sm font-medium text-gray-400">
-              <Link href="/" className="hover:text-white transition flex items-center gap-1">
-                🏠 Home
-              </Link>
-              <Link href="/studio" className="hover:text-green-400 transition flex items-center gap-1">
-                🎙️ Studio
-              </Link>
-              <Link href="/mixer" className="hover:text-green-400 transition flex items-center gap-1">
-                🎛️ Mixer
-              </Link>
-              <Link href="/roster" className="hover:text-green-400 transition flex items-center gap-1">
-                📋 Roster
-              </Link>
-              <Link href="/stadium" className="hover:text-green-400 transition flex items-center gap-1">
-                🏟️ Stadium
-              </Link>
-              <Link href="/analytics" className="hover:text-green-400 transition flex items-center gap-1">
-                🚀 Release
-              </Link>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-5 text-sm font-medium text-gray-400">
-            {isLoggedIn ? (
-              <>
-                <Link href="/library" className="hover:text-white transition flex items-center gap-1">
-                  🗃️ 보관함
-                </Link>
-                <Link
-                  href="/credit"
-                  className="bg-[#1c212c] hover:bg-[#252c3a] border border-gray-800 hover:border-gray-700 px-3 py-1 rounded-full text-xs font-mono text-green-400 flex items-center gap-1 transition cursor-pointer group"
-                >
-                  <span className="group-hover:scale-110 transition duration-150">🪙</span>
-                  <span className="font-bold">320</span>
-                  <span className="text-[10px] text-gray-400 font-sans">Credit</span>
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="hover:text-red-400 transition flex items-center gap-1"
-                >
-                  🔓 로그아웃
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={handleLogin}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-black text-xs px-4 py-2 rounded-xl shadow-md transition duration-200"
-              >
-                ⚡️ 간편 로그인하기
-              </button>
-            )}
-          </div>
-        </header>
-        {children}
+    <html lang="ko" className="dark">
+      <body className="bg-neutral-950 text-neutral-50 min-h-screen flex flex-col antialiased">
+        <Suspense fallback={<header className="w-full h-14 bg-neutral-900 border-b border-neutral-800" />}>
+          <NavigationHeader />
+        </Suspense>
+        <main className="flex-1 flex flex-col">
+          {children}
+        </main>
       </body>
     </html>
   );

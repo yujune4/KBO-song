@@ -1,133 +1,125 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { KBO_TEAMS } from '../constants/teams';
+import { Users, Search, ChevronRight, Flame } from 'lucide-react';
 
-interface Player {
-    name: string;
-    number: string;
-    position: string;
-}
-
-const ROSTER_DATA: Record<string, Player[]> = {
-    'LG 트윈스': [
-        { name: '박해민', number: 'No.17', position: '외야수' },
-        { name: '홍창기', number: 'No.51', position: '외야수' },
-        { name: '오지환', number: 'No.2', position: '내야수' },
-        { name: '문보경', number: 'No.35', position: '내야수' }
+const DUMMY_ROSTERS: Record<string, Array<{ name: string; position: string; backNumber: string; isHot?: boolean }>> = {
+    "LG 트윈스": [
+        { name: "홍창기", position: "외야수", backNumber: "51", isHot: true },
+        { name: "신민재", position: "내야수", backNumber: "4", isHot: false },
+        { name: "오스틴", position: "내야수", backNumber: "23", isHot: true },
+        { name: "문보경", position: "내야수", backNumber: "35", isHot: false },
+        { name: "박동원", position: "포수", backNumber: "27", isHot: false },
     ],
-    '삼성 라이온즈': [
-        { name: '이재현', number: 'No.7', position: '내야수' },
-        { name: '구자욱', number: 'No.5', position: '외야수' },
-        { name: '김지찬', number: 'No.58', position: '내야수' },
-        { name: '최형우', number: 'No.34', position: '지명타자' },
-        { name: '원태인', number: 'No.18', position: '투수' }
+    "KIA 타이거즈": [
+        { name: "김도영", position: "내야수", backNumber: "5", isHot: true },
+        { name: "최형우", position: "지명타자", backNumber: "34", isHot: false },
+        { name: "나성범", position: "외야수", backNumber: "47", isHot: false },
+        { name: "박찬호", position: "내야수", backNumber: "1", isHot: true },
+        { name: "양현종", position: "투수", backNumber: "54", isHot: false },
     ],
-    'kt 위즈': [
-        { name: '허경민', number: 'No.13', position: '내야수' },
-        { name: '황재균', number: 'No.10', position: '내야수' },
-        { name: '로하스', number: 'No.3', position: '외야수' }
-    ],
-    'SSG 랜더스': [
-        { name: '최정', number: 'No.14', position: '내야수' },
-        { name: '추신수', number: 'No.17', position: '지명타자' },
-        { name: '한유섬', number: 'No.35', position: '외야수' }
-    ],
-    '두산 베어스': [
-        { name: '양의지', number: 'No.25', position: '포수' },
-        { name: '정수빈', number: 'No.31', position: '외야수' }
-    ],
-    'KIA 타이거즈': [
-        { name: '김도영', number: 'No.5', position: '내야수' },
-        { name: '나성범', number: 'No.47', position: '외야수' }
-    ],
-    '롯데 자이언츠': [
-        { name: '윤동희', number: 'No.91', position: '외야수' },
-        { name: '전준우', number: 'No.8', position: '지명타자' },
-        { name: '황성빈', number: 'No.0', position: '외야수' }
-    ],
-    'NC 다이노스': [
-        { name: '박건우', number: 'No.31', position: '외야수' },
-        { name: '손아섭', number: 'No.31', position: '지명타자' },
-        { name: '서호철', number: 'No.52', position: '내야수' }
-    ],
-    '한화 이글스': [
-        { name: '노시환', number: 'No.8', position: '내야수' },
-        { name: '강백호', number: 'No.10', position: '포수/지명' },
-        { name: '류현진', number: 'No.99', position: '투수' },
-        { name: '채은성', number: 'No.22', position: '내야수' }
-    ],
-    '키움 히어로즈': [
-        { name: '송성문', number: 'No.3', position: '내야수' },
-        { name: '김혜성', number: 'No.3', position: '내야수' },
-        { name: '최주환', number: 'No.53', position: '내야수' }
+    "삼성 라이온즈": [
+        { name: "구자욱", position: "외야수", backNumber: "5", isHot: true },
+        { name: "원태인", position: "투수", backNumber: "18", isHot: true },
+        { name: "강민호", position: "포수", backNumber: "47", isHot: false },
+        { name: "김영웅", position: "내야수", backNumber: "30", isHot: false },
     ]
 };
 
-export default function RosterPage() {
+function RosterContent() {
+    const searchParams = useSearchParams();
     const router = useRouter();
-    const [selectedTeam, setSelectedTeam] = useState<string>('LG 트윈스');
+    const teamParam = searchParams.get('team') || 'LG 트윈스';
+    const team = KBO_TEAMS[teamParam] || Object.values(KBO_TEAMS)[0];
 
-    const currentRoster = ROSTER_DATA[selectedTeam] || [];
+    const [searchQuery, setSearchQuery] = useState('');
+    const players = DUMMY_ROSTERS[team.name] || [
+        { name: "에이스", position: "투수", backNumber: "1", isHot: true },
+        { name: "대표타자", position: "내야수", backNumber: "10", isHot: false },
+        { name: "스타플레이어", position: "외야수", backNumber: "99", isHot: true }
+    ];
 
-    const handleSelectPlayer = (playerName: string) => {
-        router.push(`/studio?team=${encodeURIComponent(selectedTeam)}&player=${encodeURIComponent(playerName)}`);
+    const filteredPlayers = players.filter(player =>
+        player.name.includes(searchQuery) || player.position.includes(searchQuery)
+    );
+
+    const handlePlayerClick = (playerName: string) => {
+        router.push(`/studio?team=${encodeURIComponent(team.name)}&player=${encodeURIComponent(playerName)}`);
     };
 
     return (
-        <div className="p-12 bg-[#0b0e14] min-h-screen text-white font-sans">
-            <div className="mb-14 border-b border-gray-900 pb-8">
-                <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
-                    📋 KBO Club Roster
-                </h1>
-                <p className="text-sm text-gray-500 mt-2 font-medium tracking-wide">
-                    응원가를 제작할 구단을 선택하고 대상 선수를 지정하세요.
-                </p>
-            </div>
+        <div className={`flex-1 min-h-screen bg-gradient-to-b ${team.bgGradient} p-8 flex flex-col items-center justify-center`}>
+            <div className="max-w-4xl w-full bg-neutral-900/90 border border-neutral-800 rounded-3xl p-8 backdrop-blur shadow-2xl flex flex-col space-y-6">
 
-            <div className="flex gap-2 overflow-x-auto pb-4 mb-8 border-b border-gray-800/40 scrollbar-hide">
-                {Object.keys(ROSTER_DATA).map((team) => (
-                    <button
-                        key={team}
-                        onClick={() => setSelectedTeam(team)}
-                        className={`text-xs font-bold px-4 py-2.5 rounded-lg whitespace-nowrap transition ${selectedTeam === team
-                                ? 'bg-green-500 text-black shadow-md'
-                                : 'bg-[#12161f] text-gray-400 hover:bg-[#1c212c] hover:text-white border border-gray-800/60'
-                            }`}
-                    >
-                        {team}
-                    </button>
-                ))}
-            </div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-neutral-800">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-neutral-800 text-emerald-400 border border-neutral-700">
+                            <Users size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black tracking-tight text-white">구단 등록 로스터</h2>
+                            <p className="text-xs text-neutral-400">{team.name} 선수단 가사 타겟팅 명단</p>
+                        </div>
+                    </div>
 
-            <div className="bg-[#12161f] border border-gray-800/60 rounded-xl p-6">
-                <h2 className="text-xs font-bold text-gray-400 tracking-wider uppercase mb-6">
-                    🏃 {selectedTeam} 선수 명단
-                </h2>
+                    <div className="relative max-w-xs w-full">
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="선수명 또는 포지션 검색..."
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-neutral-700 transition-colors"
+                        />
+                    </div>
+                </div>
 
-                <div className="grid grid-cols-4 gap-4">
-                    {currentRoster.map((player) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {filteredPlayers.map((player) => (
                         <div
-                            key={player.name}
-                            onClick={() => handleSelectPlayer(player.name)}
-                            className="bg-[#1c212c] border border-gray-800/80 hover:border-green-500/40 rounded-xl p-5 cursor-pointer transition group"
+                            key={player.backNumber}
+                            onClick={() => handlePlayerClick(player.name)}
+                            className="group bg-neutral-950/60 border border-neutral-850 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:border-neutral-700 hover:bg-neutral-950 transition-all"
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <span className="text-xs font-mono text-gray-500 group-hover:text-green-400 font-bold">
-                                    {player.number}
-                                </span>
-                                <span className="text-[10px] bg-[#12161f] text-gray-400 px-2 py-0.5 rounded border border-gray-800">
-                                    {player.position}
-                                </span>
+                            <div className="flex items-center gap-4">
+                                <div
+                                    style={{ backgroundColor: `${team.primaryColor}15`, borderColor: `${team.primaryColor}40` }}
+                                    className="w-12 h-12 rounded-xl border flex flex-col items-center justify-center font-mono"
+                                >
+                                    <span className="text-[10px] text-neutral-500 font-sans">NO.</span>
+                                    <span className="text-base font-bold" style={{ color: team.primaryColor }}>{player.backNumber}</span>
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-neutral-200 group-hover:text-white transition-colors">{player.name}</h3>
+                                        {player.isHot && (
+                                            <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                <Flame size={10} /> 응원가 최다 생성
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-neutral-500 mt-0.5">{player.position}</p>
+                                </div>
                             </div>
-                            <h3 className="text-base font-bold text-white group-hover:text-green-400 transition">
-                                {player.name}
-                            </h3>
-                            <p className="text-[11px] text-gray-500 mt-1">응원가 커스텀 제작하기 ➡️</p>
+
+                            <button className="text-neutral-600 group-hover:text-neutral-400 transition-colors flex items-center gap-1 text-xs">
+                                선택 <ChevronRight size={14} />
+                            </button>
                         </div>
                     ))}
                 </div>
+
             </div>
         </div>
+    );
+}
+
+export default function RosterPage() {
+    return (
+        <Suspense fallback={<div className="flex-1 bg-neutral-950" />}>
+            <RosterContent />
+        </Suspense>
     );
 }

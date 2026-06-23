@@ -1,320 +1,140 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { KBO_TEAMS } from '../constants/teams';
+import { Landmark, Tv, Maximize2, Volume2, Users, Sliders } from 'lucide-react';
 
-interface Team {
-    name: string;
-    englishName: string;
-}
-
-const TEAMS_DATA: Team[] = [
-    { name: 'LG 트윈스', englishName: 'LG Twins' },
-    { name: '삼성 라이온즈', englishName: 'Samsung Lions' },
-    { name: 'kt 위즈', englishName: 'kt wiz' },
-    { name: 'SSG 랜더스', englishName: 'SSG Landers' },
-    { name: '두산 베어스', englishName: 'Doosan Bears' },
-    { name: 'KIA 타이거즈', englishName: 'KIA Tigers' },
-    { name: '롯데 자이언츠', englishName: 'Lotte Giants' },
-    { name: 'NC 다이노스', englishName: 'NC Dinos' },
-    { name: '한화 이글스', englishName: 'Hanwha Eagles' },
-    { name: '키움 히어로즈', englishName: 'Kiwoom Heroes' }
-];
-
-function StudioContent() {
-    const router = useRouter();
+function StadiumContent() {
     const searchParams = useSearchParams();
-    const [playerName, setPlayerName] = useState('');
-    const [keywords, setKeywords] = useState('');
-    const [lyrics, setLyrics] = useState('');
-    const [activeTeam, setActiveTeam] = useState<Team>({ name: 'LG 트윈스', englishName: 'LG Twins' });
+    const router = useRouter();
+    const teamParam = searchParams.get('team') || 'LG 트윈스';
+    const team = KBO_TEAMS[teamParam] || Object.values(KBO_TEAMS)[0];
 
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [generationStatus, setGenerationStatus] = useState('');
-    const [isLyricsGenerating, setIsLyricsGenerating] = useState(false);
-    const [lyricsStatus, setLyricsStatus] = useState('');
-
-    const [generatedAudioUrl, setGeneratedAudioUrl] = useState('');
-    const [showRestoreModal, setShowRestoreModal] = useState(false);
+    const [isLive, setIsLive] = useState(false);
+    const [currentMetric, setCurrentMetric] = useState(105);
 
     useEffect(() => {
-        const teamParam = searchParams.get('team');
-        if (teamParam) {
-            const decodedTeam = decodeURIComponent(teamParam).toLowerCase().replace(/\s+/g, '');
-            const matched = TEAMS_DATA.find(t => {
-                const normalized = t.name.toLowerCase().replace(/\s+/g, '');
-                return normalized.includes(decodedTeam) || decodedTeam.includes(normalized);
-            });
-            if (matched) setActiveTeam(matched);
-        }
-
-        const savedDraft = localStorage.getItem('basebeat_lyrics_draft');
-        if (savedDraft) {
-            setShowRestoreModal(true);
-        }
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!lyrics.trim()) return;
-        const timer = setTimeout(() => {
-            localStorage.setItem('basebeat_lyrics_draft', JSON.stringify({
-                playerName,
-                keywords,
-                lyrics,
-                teamName: activeTeam.name,
-                time: Date.now()
-            }));
-        }, 1000);
-        return () => clearTimeout(timer);
-    }, [lyrics, playerName, keywords, activeTeam]);
-
-    const handleRestoreDraft = () => {
-        const savedDraft = localStorage.getItem('basebeat_lyrics_draft');
-        if (savedDraft) {
-            const parsed = JSON.parse(savedDraft);
-            setPlayerName(parsed.playerName || '');
-            setKeywords(parsed.keywords || '');
-            setLyrics(parsed.lyrics || '');
-            const matched = TEAMS_DATA.find(t => t.name === parsed.teamName);
-            if (matched) setActiveTeam(matched);
-        }
-        setShowRestoreModal(false);
-    };
-
-    const handleManualSave = () => {
-        localStorage.setItem('basebeat_lyrics_draft', JSON.stringify({
-            playerName,
-            keywords,
-            lyrics,
-            teamName: activeTeam.name,
-            time: Date.now()
-        }));
-        alert('현재 작업 내용이 임시 저장되었습니다.');
-    };
-
-    const handleDiscardDraft = () => {
-        localStorage.removeItem('basebeat_lyrics_draft');
-        setShowRestoreModal(false);
-    };
-
-    const handleGenerateAIKeywords = async () => {
-        setIsLyricsGenerating(true);
-        setLyricsStatus('AI가 야구장 감성 가사를 작사하는 중...');
-
-        try {
-            const res = await fetch('/api/lyrics', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    teamName: activeTeam.name,
-                    playerName: playerName,
-                    keywords: keywords
-                })
-            });
-
-            const data = await res.json();
-
-            if (data.lyrics) {
-                setLyrics(data.lyrics);
-            } else {
-                alert('AI 가사 생성 실패');
-            }
-        } catch (err) {
-            console.error(err);
-            alert('AI 통신 에러 발생');
-        } finally {
-            setIsLyricsGenerating(false);
-            setLyricsStatus('');
-        }
-    };
-
-    const handleCreateMurekaVocal = async () => {
-        if (!lyrics.trim()) return alert('가사를 먼저 생성하거나 입력해 주세요.');
-
-        setIsGenerating(true);
-        setGenerationStatus('가창 트랙 렌더링 요청 중...');
-
-        try {
-            const res = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    lyrics: lyrics,
-                    style: `${activeTeam.englishName} Baseball Cheer Song, Powerful Rock`,
-                    title: `${activeTeam.name} ${playerName || '공통'} 응원가`
-                })
-            });
-            const data = await res.json();
-
-            if (data.status === 'SUCCESS' && data.audioUrl) {
-                setGeneratedAudioUrl(data.audioUrl);
-                setIsGenerating(false);
-                setGenerationStatus('');
-                try {
-                    sessionStorage.setItem('basebeat_current_audio', data.audioUrl);
-                    sessionStorage.setItem('basebeat_current_lyrics', lyrics);
-                    localStorage.removeItem('basebeat_lyrics_draft');
-                } catch (e) {
-                    console.error(e);
-                }
-                alert('Mureka AI 오디오 가창 트랙 빌딩이 성공적으로 완료되었습니다!');
-            } else {
-                setIsGenerating(false);
-                setGenerationStatus('');
-                alert('가창 트랙 생성 실패');
-            }
-        } catch (err) {
-            console.error(err);
-            setIsGenerating(false);
-            setGenerationStatus('');
-            alert('통신 에러 발생');
-        }
-    };
-
-    const handleNextStep = () => {
-        if (!lyrics.trim() || !generatedAudioUrl) {
-            return alert('Mureka 가창 생성이 완료된 후 다음 단계로 진행할 수 있습니다.');
-        }
-
-        const params = new URLSearchParams({
-            team: activeTeam.name,
-            player: playerName,
-            keywords: keywords,
-            lyrics: lyrics,
-            audio: generatedAudioUrl
-        });
-
-        router.push(`/mixer?${params.toString()}`);
-    };
+        if (!isLive) return;
+        const interval = setInterval(() => {
+            setCurrentMetric(Math.floor(Math.random() * (120 - 98 + 1)) + 98);
+        }, 800);
+        return () => clearInterval(interval);
+    }, [isLive]);
 
     return (
-        <div className="p-12 bg-[#0b0e14] min-h-screen text-white font-sans selection:bg-green-500/30 relative">
-            {showRestoreModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#12161f] border border-gray-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-                        <h3 className="text-base font-black text-white">📝 작성 중이던 기록 발견</h3>
-                        <p className="text-xs text-gray-400 leading-relaxed">이전에 임시 저장되었거나 편집 중이던 응원가 가사 작업실 기록이 있습니다. 다시 불러오시겠습니까?</p>
-                        <div className="grid grid-cols-2 gap-2 pt-2">
-                            <button onClick={handleDiscardDraft} className="bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold py-2.5 rounded-xl text-xs transition">새로 작성</button>
-                            <button onClick={handleRestoreDraft} className="bg-green-500 hover:bg-green-400 text-black font-black py-2.5 rounded-xl text-xs transition">이어 쓰기</button>
+        <div className={`flex-1 min-h-screen bg-gradient-to-b ${team.bgGradient} p-8 flex flex-col items-center justify-center`}>
+            <div className="max-w-4xl w-full bg-neutral-900/90 border border-neutral-800 rounded-3xl p-8 backdrop-blur shadow-2xl flex flex-col space-y-6">
+
+                <div className="flex items-center justify-between pb-6 border-b border-neutral-800">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-neutral-800 text-emerald-400 border border-neutral-700">
+                            <Landmark size={20} />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-black tracking-tight text-white">현장 전광판 시뮬레이터</h2>
+                            <p className="text-xs text-neutral-400">{team.name} 홈구장 앰비언트 인게이지먼트</p>
                         </div>
                     </div>
-                </div>
-            )}
 
-            <div className="mb-14 border-b border-gray-900 pb-8 flex justify-between items-end">
-                <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
-                        🎙️ AI Composing Studio
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-2 font-medium tracking-wide">
-                        선택된 <span className="text-green-400 font-bold">{activeTeam.name}</span>의 테마를 기반으로 맞춤형 응원가를 커스텀 빌딩합니다.
-                    </p>
-                </div>
-                <button
-                    onClick={handleManualSave}
-                    className="bg-[#1c212c] hover:bg-[#252c3a] border border-gray-800 text-gray-300 font-bold px-4 py-2 rounded-xl text-xs transition shadow-sm tracking-wide"
-                >
-                    💾 작업 임시 저장
-                </button>
-            </div>
-
-            <div className="grid grid-cols-12 gap-8">
-                <div className="col-span-5 bg-[#12161f] border border-gray-800/60 rounded-xl p-6 flex flex-col justify-between h-[480px]">
-                    <div className="space-y-4">
-                        <div>
-                            <span className="text-[10px] font-mono bg-green-500/10 text-green-400 px-2.5 py-1 rounded-md font-bold uppercase border border-green-500/20 tracking-wider inline-block">
-                                선택 구단 연동 완료
-                            </span>
-                            <div className="text-xl font-black text-white mt-1 tracking-tight">{activeTeam.name}</div>
-                        </div>
-
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">선수 이름</label>
-                            <input
-                                type="text"
-                                value={playerName}
-                                onChange={(e) => setPlayerName(e.target.value)}
-                                placeholder="선수명 (선택사항)"
-                                className="w-full bg-[#0b0e14] border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-green-400 transition"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">커스텀 키워드 (개수 제한 없음)</label>
-                            <textarea
-                                value={keywords}
-                                onChange={(e) => setKeywords(e.target.value)}
-                                placeholder="원하는 단어들을 공백이나 콤마(,)로 마음껏 입력하세요. (예: 홈런, 가을야구, 눈물, 승리, 역전, 무적, 챔피언)"
-                                rows={2}
-                                className="w-full bg-[#0b0e14] border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-green-400 transition resize-none leading-relaxed"
-                            />
-                        </div>
-
-                        {lyricsStatus && (
-                            <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center font-mono animate-pulse">
-                                {lyricsStatus}
-                            </div>
-                        )}
-
-                        {generationStatus && (
-                            <div className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center font-mono animate-pulse">
-                                {generationStatus}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mt-4">
-                        <button
-                            onClick={handleGenerateAIKeywords}
-                            disabled={isLyricsGenerating}
-                            className={`font-bold py-3.5 rounded-xl text-xs transition duration-200 tracking-wider border ${isLyricsGenerating
-                                    ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                                    : 'bg-[#1c212c] hover:bg-[#252c3a] border-gray-800 text-white'
-                                }`}
-                        >
-                            {isLyricsGenerating ? '✨ 작사 중...' : '✨ 가사 자동 완성'}
-                        </button>
-                        <button
-                            onClick={handleCreateMurekaVocal}
-                            disabled={isGenerating}
-                            className={`font-bold py-3.5 rounded-xl text-xs transition duration-200 tracking-wider border ${isGenerating
-                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                                    : 'bg-blue-600/20 border-blue-500/30 text-blue-400 hover:bg-blue-600 hover:text-white'
-                                }`}
-                        >
-                            {isGenerating ? '🎤 가창 생성 중...' : '🔥 Mureka 가창 입히기'}
-                        </button>
-                    </div>
-                </div>
-
-                <div className="col-span-7 bg-[#12161f] border border-gray-800/60 rounded-xl p-6 flex flex-col justify-between h-[480px]">
-                    <textarea
-                        value={lyrics}
-                        onChange={(e) => setLyrics(e.target.value)}
-                        placeholder="버튼을 누르면 여기에 가사가 나타납니다. 직접 타이핑하셔도 자동으로 임시 보관됩니다."
-                        className="w-full flex-1 bg-[#0b0e14] border border-gray-800 rounded-xl p-5 text-sm text-gray-300 font-mono leading-relaxed resize-none focus:outline-none focus:border-green-400 transition"
-                    />
                     <button
-                        onClick={handleNextStep}
-                        disabled={!generatedAudioUrl}
-                        className={`w-full mt-4 font-black py-4 rounded-xl text-xs shadow-md transition duration-200 tracking-wider ${generatedAudioUrl
-                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black'
-                                : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                            }`}
+                        onClick={() => setIsLive(!isLive)}
+                        style={{ backgroundColor: isLive ? '#CE0E2D' : team.primaryColor }}
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 hover:opacity-90 transition-all shadow-lg"
                     >
-                        오디오 결합 볼륨 믹서 이동 ⚡
+                        <Tv size={14} />
+                        {isLive ? '전광판 송출 중단' : '라이브 전광판 가동'}
                     </button>
                 </div>
+
+                <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-950 flex flex-col items-center justify-center p-6 shadow-inner">
+                    <div
+                        className="absolute inset-0 opacity-20 bg-cover bg-center transition-all duration-700"
+                        style={{ backgroundImage: `url('${team.stadiumBg}')`, filter: isLive ? 'contrast(1.2) brightness(0.8)' : 'grayscale(0.5)' }}
+                    />
+
+                    <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+                        <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-red-500 animate-ping' : 'bg-neutral-600'}`} />
+                        <span className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase">
+                            {isLive ? 'LIVE // STADIUM_ON' : 'STANDBY'}
+                        </span>
+                    </div>
+
+                    <div className="z-10 text-center space-y-4 max-w-xl">
+                        <h1
+                            style={{ color: isLive ? team.primaryColor : '#737373', textShadow: isLive ? `0 0 20px ${team.primaryColor}50` : 'none' }}
+                            className="text-3xl md:text-5xl font-black tracking-widest transition-all duration-300"
+                        >
+                            {isLive ? '승리를 향하여!' : 'READY TO PLAY'}
+                        </h1>
+                        <p className={`text-base md:text-xl font-bold tracking-wide text-neutral-200 transition-opacity duration-500 ${isLive ? 'opacity-100' : 'opacity-40'}`}>
+                            {isLive ? `오오ㅡ 외쳐라 ${team.name}의 심장 마치 터질 듯이!` : '가사 및 가창 트랙 믹싱 완료 후 전광판을 가동하세요.'}
+                        </p>
+                    </div>
+
+                    {isLive && (
+                        <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center z-10 px-2">
+                            <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
+                                <Volume2 size={12} /> CROWD CHANT DELAY: 24ms
+                            </span>
+                            <span className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
+                                <Maximize2 size={12} /> FULLSCREEN
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4">
+                    <div className="bg-neutral-950/60 border border-neutral-850 rounded-xl p-4 flex items-center gap-4">
+                        <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-400">
+                            <Users size={16} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">가상 관중 떼창 압력</p>
+                            <p className="text-sm font-mono font-bold text-neutral-200 mt-0.5">{isLive ? `${currentMetric} dB` : '0 dB'}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-neutral-950/60 border border-neutral-850 rounded-xl p-4 flex items-center gap-4">
+                        <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-400">
+                            <Sliders size={16} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">스피커 리버브 모드</p>
+                            <p className="text-sm font-bold text-neutral-200 mt-0.5">{isLive ? '웅장한 스타디움 돔' : '비활성화'}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-neutral-950/60 border border-neutral-850 rounded-xl p-4 flex items-center gap-4">
+                        <div className="p-2.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-400">
+                            <Landmark size={16} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">송출 구장 매핑</p>
+                            <p className="text-sm font-bold text-neutral-200 mt-0.5">{team.name} 전용 홈구장</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="pt-4 border-t border-neutral-800 flex justify-end">
+                    <button
+                        onClick={() => router.push(`/release?team=${encodeURIComponent(team.name)}`)}
+                        style={{ backgroundColor: team.primaryColor }}
+                        className="px-6 py-3 rounded-xl text-xs font-bold text-white hover:opacity-90 transition-opacity shadow-md flex items-center gap-1"
+                    >
+                        최종 단계: 마스터 음원 마스터링 & 릴리즈
+                    </button>
+                </div>
+
             </div>
         </div>
     );
 }
 
-export default function StudioPage() {
+export default function StadiumPage() {
     return (
-        <Suspense fallback={<div className="p-12 text-center text-sm text-gray-500">스튜디오 모듈 로딩 중...</div>}>
-            <StudioContent />
+        <Suspense fallback={<div className="flex-1 bg-neutral-950" />}>
+            <StadiumContent />
         </Suspense>
     );
 }
